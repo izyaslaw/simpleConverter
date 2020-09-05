@@ -116,7 +116,9 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(830, 403);
+            this.AutoScroll = true;
+            this.AutoSize = true;
+            this.ClientSize = new System.Drawing.Size(844, 231);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.button_minus);
             this.Controls.Add(this.button_plus);
@@ -125,6 +127,7 @@
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.textBox1);
+            this.MaximumSize = new System.Drawing.Size(860, 600);
             this.Name = "Form2";
             this.Text = "Добавить";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form2_FormClosed);

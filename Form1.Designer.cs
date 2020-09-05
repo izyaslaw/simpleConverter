@@ -42,12 +42,15 @@
             // 
             // comboBox1
             // 
-            this.comboBox1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboBox1.FormattingEnabled = true;
+            this.comboBox1.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.comboBox1.IntegralHeight = false;
             this.comboBox1.Location = new System.Drawing.Point(23, 34);
             this.comboBox1.Name = "comboBox1";
             this.comboBox1.Size = new System.Drawing.Size(186, 21);
             this.comboBox1.TabIndex = 0;
+            this.comboBox1.SelectionChangeCommitted += new System.EventHandler(this.comboBox1_SelectionChangeCommitted);
+            this.comboBox1.TextUpdate += new System.EventHandler(this.comboBox1_TextUpdate);
             // 
             // label1
             // 

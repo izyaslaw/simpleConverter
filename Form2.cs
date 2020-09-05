@@ -12,7 +12,6 @@ namespace SimpleConverter
         private const int DIST_BETW_TB_H = 186;
         private const int DIST_BETW_TB_V = 30;
         private const int COLUMN_AMOUNT = 3;
-        private bool closeAfterSave = false;
         private Form1 F1 { get; set; } = null;
         private List<TextBox[]> Ingredients { get; set; } = new List<TextBox[]>();
 
@@ -33,14 +32,13 @@ namespace SimpleConverter
             : this(f)
         {
             this.Text = caption;
-            closeAfterSave = true;
             formRestore(key);
             formFilling(key);
         }
 
         private void formRestore(string key)
         {
-            string[,] ingredient_values = F1.Storage[key];
+            F1.tryGetIngredients(key, out string[,] ingredient_values);
             int rows = ingredient_values.GetUpperBound(0);
             for (int i = 0; i < rows; i++)
             {
@@ -50,7 +48,7 @@ namespace SimpleConverter
 
         private void formFilling(string key)
         {
-            string[,] ingredient_values = F1.Storage[key];
+            F1.tryGetIngredients(key, out string[,] ingredient_values);
 
             textBox1.Text = key;
             for (int i = 0; i < Ingredients.Count; i++)
@@ -81,12 +79,12 @@ namespace SimpleConverter
 
         private void button1_Click(object sender, EventArgs e)
         {
-            if (!amountFieldsIsOK()) return;
-            fromFormToStorage();
-            F1.saveStorage();
-            F1.refreshComboBox();
-            MessageBox.Show($"Рецепт {textBox1.Text} успешно сохранен!", "Успешно!");
-            if (closeAfterSave) this.Close();
+            if (GetrecipeNameFieldIsOK() &&
+                GetingredientNameFieldsIsOK() &&
+                amountFieldsIsOK())
+            {
+                fromFormToStorage();
+            }
         }
 
         private bool amountFieldsIsOK()
@@ -107,12 +105,52 @@ namespace SimpleConverter
             return true;
         }
 
+        private bool GetingredientNameFieldsIsOK()
+        {
+            foreach (TextBox[] ingredient in Ingredients)
+            {
+                if (ingredient[0].Text.Length > 0) return true;
+                else
+                {
+                    MessageBox.Show("У ингредиента должно быть название!", "Ошибка");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private bool GetrecipeNameFieldIsOK()
+        {
+            if (textBox1.Text.Length > 0) return true;
+            else
+            {
+                MessageBox.Show("У рецепта должно быть название!", "Ошибка");
+                return false;
+            }
+        }
+
         private void normalizeDoubleInAmount()
         {
             foreach (TextBox[] ingredient in Ingredients) 
             {
                 ingredient[1].Text = String.Join(",", ingredient[1].Text.Split('.'));
             }
+        }
+
+        private bool updateRecipe(string[,] ingredients_values)
+        {
+            var result = MessageBox.Show(
+                    $"Изменить рецепт {textBox1.Text}?",
+                    "Изменение",
+                    MessageBoxButtons.YesNo
+                );
+            if (result == DialogResult.Yes)
+            {
+                F1.Storage.Remove(textBox1.Text);
+                F1.Storage.Add(textBox1.Text, ingredients_values);
+                return true;
+            }
+            else return false;
         }
 
         private void fromFormToStorage()
@@ -122,21 +160,13 @@ namespace SimpleConverter
 
             if (existRecipe)
             {
-                var result = MessageBox.Show(
-                    $"Изменить рецепт {textBox1.Text}?",
-                    "Изменение",
-                    MessageBoxButtons.YesNo
-                );
-                if (result == DialogResult.Yes)
-                {
-                    F1.Storage.Remove(textBox1.Text);
-                    F1.Storage.Add(textBox1.Text, ingredients_values);
-                }
-            } 
-            else
-            {
-                F1.Storage.Add(textBox1.Text, ingredients_values);
+                if (!updateRecipe(ingredients_values)) return;
             }
+            else F1.Storage.Add(textBox1.Text, ingredients_values);
+            F1.saveStorage();
+            F1.refreshComboBox();
+            MessageBox.Show($"Рецепт {textBox1.Text} успешно сохранен!", "Успешно!");
+            this.Close();
         }
 
         private string[,] fillIngValues()
@@ -156,9 +186,12 @@ namespace SimpleConverter
         private void button_plus_Click(object sender, EventArgs e)
         {
             TextBox[] newBoxes = new TextBox[COLUMN_AMOUNT];
-            for (int i = 0; i < newBoxes.Length; i++) 
-                newBoxes[i] = CreateTextBox(TB1_X + i * DIST_BETW_TB_H, 
+            for (int i = 0; i < newBoxes.Length; i++)
+            {
+                newBoxes[i] = CreateTextBox(TB1_X + i * DIST_BETW_TB_H,
                               TB1_Y + DIST_BETW_TB_V * Ingredients.Count);
+                if (i == newBoxes.Length - 1) newBoxes[i].Text = "кг";
+            }
             foreach (TextBox newBox in newBoxes) 
                 newBox.KeyDown += new KeyEventHandler(this.textBox_KeyDown);
             Ingredients.Add(newBoxes);

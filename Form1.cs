@@ -4,12 +4,13 @@ using System.IO;
 using Newtonsoft.Json;
 using System.Windows.Forms;
 using ClosedXML.Excel;
+using System.Linq;
 
 namespace SimpleConverter
 {
     public partial class Form1 : Form
     {
-        internal Dictionary<string, string[,]> Storage { get; set; } = new Dictionary<string, string[,]>();
+        internal SortedDictionary<string, string[,]> Storage { get; set; } = new SortedDictionary<string, string[,]>();
         private string path = readPathTxt();
         public Form1()
         {
@@ -84,7 +85,7 @@ namespace SimpleConverter
             try
             {
                 json = File.ReadAllText("recipes.json");
-                Storage = JsonConvert.DeserializeObject<Dictionary<string, string[,]>>(json);
+                Storage = JsonConvert.DeserializeObject<SortedDictionary<string, string[,]>>(json);
             }
             catch { }
         }
@@ -133,17 +134,31 @@ namespace SimpleConverter
         {
             string recipeName = comboBox1.Text;
             string stringAmount = textBox1.Text;
-            string[,] ingredient = Storage[recipeName];
+            string[,] ingredients;
             double multiplier;
 
-            if (tryGetMultiplier(stringAmount, out multiplier))
+            if (tryGetMultiplier(stringAmount, out multiplier) &&
+                tryGetIngredients(recipeName, out ingredients))
             {
                 XLWorkbook workbook = new XLWorkbook();
                 IXLWorksheet ws = workbook.Worksheets.Add("Sample Sheet");
-                fillXlDoc(recipeName, stringAmount, ingredient, ws, multiplier);
-                customizeXlDoc(ws, ingredient);
-                workbook.SaveAs(path + $"{recipeName} {stringAmount}.xlsx");
+                fillXlDoc(recipeName, stringAmount, ingredients, ws, multiplier);
+                customizeXlDoc(ws, ingredients);
+                workbook.SaveAs(path + $"{recipeName}_{stringAmount}.xlsx");
+                MessageBox.Show($"Файл {recipeName}_{stringAmount}.xlsx успешно сохранен", "Успешно");
             }
+        }
+
+        internal bool tryGetIngredients(string recipeName, out string[,] ingredients)
+        {
+            try { ingredients = Storage[recipeName]; }
+            catch
+            {
+                MessageBox.Show("Выберите существующий рецепт!", "Ошибка в наименовании рецепта");
+                ingredients = new string[0,0];
+                return false;
+            }
+            return true;
         }
 
         private bool tryGetMultiplier(string stringAmount, out double multiplier)
@@ -151,10 +166,7 @@ namespace SimpleConverter
             const double UNIT_KOEFF = 0.5;
             const double RECIPE_MASS = 1000;
             ulong amount;
-            try
-            {
-                amount = ulong.Parse(stringAmount);
-            }
+            try { amount = ulong.Parse(stringAmount); }
             catch
             {
                 MessageBox.Show("Количество должно быть положительным целым числом!", "Ошибка в строке Количество");
@@ -221,6 +233,30 @@ namespace SimpleConverter
             rewritePathTxt(DirDialog.SelectedPath);
             path = readPathTxt();
             button2_Click(null, EventArgs.Empty);
+        }
+
+        private void comboBox1_TextUpdate(object sender, EventArgs e)
+        {
+            List<string> newValues = new List<string>();
+            string[] allKeys = Storage.Keys.ToArray();
+            string currentText = comboBox1.Text;
+            Cursor.Current = Cursors.Default;
+
+            foreach (string key in allKeys) if (key.Contains(currentText)) newValues.Add(key);
+            comboBox1.Items.Clear();
+            comboBox1.SelectionStart = comboBox1.Text.Length;
+            comboBox1.Select(comboBox1.Text.Length, 0);
+            if (newValues.Count == 0) comboBox1.Items.AddRange(allKeys);
+            else comboBox1.Items.AddRange(newValues.ToArray());
+            comboBox1.DroppedDown = true;
+        }
+
+        private void comboBox1_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            string currentValue = comboBox1.SelectedItem?.ToString() ?? comboBox1.Items[0].ToString();
+            comboBox1.Items.Clear();
+            fillComboBox();
+            comboBox1.SelectedItem = currentValue;
         }
     }
 }
