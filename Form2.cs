@@ -11,7 +11,7 @@ namespace SimpleConverter
         private const int TB1_Y = 46;
         private const int DIST_BETW_TB_H = 186;
         private const int DIST_BETW_TB_V = 30;
-        private const int COLUMN_AMOUNT = 3;
+        public const int COLUMN_AMOUNT = 3;
         private Form1 F1 { get; set; } = null;
         private List<TextBox[]> Ingredients { get; set; } = new List<TextBox[]>();
 
@@ -164,7 +164,7 @@ namespace SimpleConverter
             }
             else F1.Storage.Add(textBox1.Text, ingredients_values);
             F1.saveStorage();
-            F1.refreshComboBox();
+            F1.refreshRecipeNames();
             MessageBox.Show($"Рецепт {textBox1.Text} успешно сохранен!", "Успешно!");
             this.Close();
         }

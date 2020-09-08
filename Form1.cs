@@ -11,34 +11,34 @@ namespace SimpleConverter
     public partial class Form1 : Form
     {
         internal SortedDictionary<string, string[,]> Storage { get; set; } = new SortedDictionary<string, string[,]>();
+        internal RecipesToBeConv recipesToBeConv;
         private string path = readPathTxt();
         public Form1()
         {
             InitializeComponent();
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            Form2 newForm = new Form2(this);
-            newForm.Show();
-        }
-
         private void Form1_Load(object sender, EventArgs e)
         {
             loadStorage();
-            refreshComboBox();
+            recipesToBeConv = new RecipesToBeConv(this);
+            fillRecipeCB();
+            CRUDDisableIfRecipesEmpty();
+        }
+
+        private void fillRecipeCB()
+        {
+            fillRecipeNameCB(recipeCB);
+            recipeCB.TextUpdate += new EventHandler(cbRecipeName_TextUpdate);
+            recipeCB.Leave += new EventHandler(recipeName_Leave);
+            recipeCB.SelectionChangeCommitted += new EventHandler(recipeName_SelectionChangeCommitted);
+            recipeCB.SelectedIndex = 0;
         }
 
         private static string readPathTxt()
         {
-            try
-            {
-                return File.ReadAllText("path.txt");
-            }
-            catch 
-            {
-                return returnNewPathTxt();
-            }
+            try { return File.ReadAllText("path.txt"); }
+            catch { return returnNewPathTxt(); }
         }
 
         private static string returnNewPathTxt()
@@ -58,25 +58,20 @@ namespace SimpleConverter
             file.Close();
         }
 
-        internal void fillComboBox()
+        private void CRUDDisableIfRecipesEmpty()
         {
-            var keys = Storage.Keys;
-            foreach (string key in keys)
+            if (Storage.Count > 0)
             {
-                comboBox1.Items.Add(key);
+                bChangeRecipe.Enabled = true;
+                bDeleteRecipe.Enabled = true;
             }
         }
 
-        internal void refreshComboBox()
+        internal void refreshRecipeNames()
         {
-            comboBox1.Items.Clear();
-            fillComboBox();
-            if (Storage.Count > 0)
-            {
-                comboBox1.SelectedIndex = 0;
-                button3.Enabled = true;
-                button4.Enabled = true;
-            } 
+            recipesToBeConv.refreshRecipeNames();
+            RecipeToBeConv.RefreshRecipeName(recipeCB, this);
+            CRUDDisableIfRecipesEmpty();
         }
 
         internal void loadStorage()
@@ -99,54 +94,11 @@ namespace SimpleConverter
             file.Close();
         }
 
-        private void button4_Click(object sender, EventArgs e)
-        {
-            string key = comboBox1.SelectedItem?.ToString();
-            DialogResult DeleteIt = MessageBox.Show(
-                $"Удалить рецепт {key}?",
-                "Удаление",
-                MessageBoxButtons.YesNo
-            );
-            if (DeleteIt == DialogResult.Yes) DeleteRecipe(key);
-            if (Storage.Count == 0)
-            {
-                comboBox1.Text = "";
-                button3.Enabled = false;
-                button4.Enabled = false;
-            }
-
-        }
-
         private void DeleteRecipe(string key)
         {
             Storage.Remove(key);
             saveStorage();
-            refreshComboBox();
-        }
-
-        private void button3_Click(object sender, EventArgs e)
-        {
-            Form2 newForm = new Form2(this, "Изменить", comboBox1.Text);
-            newForm.Show();
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            string recipeName = comboBox1.Text;
-            string stringAmount = textBox1.Text;
-            string[,] ingredients;
-            double multiplier;
-
-            if (tryGetMultiplier(stringAmount, out multiplier) &&
-                tryGetIngredients(recipeName, out ingredients))
-            {
-                XLWorkbook workbook = new XLWorkbook();
-                IXLWorksheet ws = workbook.Worksheets.Add("Sample Sheet");
-                fillXlDoc(recipeName, stringAmount, ingredients, ws, multiplier);
-                customizeXlDoc(ws, ingredients);
-                workbook.SaveAs(path + $"{recipeName}_{stringAmount}.xlsx");
-                MessageBox.Show($"Файл {recipeName}_{stringAmount}.xlsx успешно сохранен", "Успешно");
-            }
+            refreshRecipeNames();
         }
 
         internal bool tryGetIngredients(string recipeName, out string[,] ingredients)
@@ -177,53 +129,42 @@ namespace SimpleConverter
             return true;
         }
 
-        private void fillXlDoc(string recipeName, string stringAmount, string[,] ingredient, IXLWorksheet ws, double multiplier)
+        private void bAddRecipe_Click(object sender, EventArgs e)
         {
-            ws.Name = recipeName + " " + stringAmount;
-            ws.Cell("A1").Value = "Наименование";
-            ws.Cell("A3").Value = recipeName;
-            ws.Cell("B1").Value = "На объем ГП";
-            ws.Cell("B3").Value = stringAmount;
-            ws.Cell("C1").Value = "Потребность";
-            ws.Cell("C2").Value = "Наименование";
-            ws.Cell("D2").Value = "Количество";
-            ws.Cell("E2").Value = "Ед. Изм";
-
-            fillXlIngredients(ingredient, multiplier, ws);
+            Form2 newForm = new Form2(this);
+            newForm.Show();
         }
 
-        private void fillXlIngredients(string[,] ingredient, double multiplier, IXLWorksheet ws)
+        private void bChangeRecipe_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < ingredient.GetLength(0); i++)
-            {
-                for (int j = 0; j < ingredient.GetLength(1); j++)
-                {
-                    if (j == 1)
-                    {
-                        ws.Cell(3 + i, 3 + j).Value = Math.Round(Double.Parse(ingredient[i, j]) * multiplier, 4);
-                    }
-                    else ws.Cell(3 + i, 3 + j).Value = ingredient[i, j];
-                }
-            }
+            Form2 newForm = new Form2(this, "Изменить", recipeCB.Text);
+            newForm.Show();
         }
 
-        private void customizeXlDoc(IXLWorksheet ws, string[,] ingredient)
+        private void bDeleteRecipe_Click(object sender, EventArgs e)
         {
-            IXLRange allTable = ws.Range("A1", $"E{2 + ingredient.GetLength(0)}");
-            ws.Columns().AdjustToContents();
-            ws.Range("A1:A2").Column(1).Merge();
-            ws.Range("B1:B2").Column(1).Merge();
-            ws.Range("C1:E1").Row(1).Merge();
-            allTable.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            allTable.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-            allTable.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
-            allTable.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-            allTable.Style.Border.RightBorder = XLBorderStyleValues.Thin;
-            allTable.Style.Border.TopBorder = XLBorderStyleValues.Thin;
-            allTable.Style.Border.LeftBorder = XLBorderStyleValues.Thin;
+            string key = recipeCB.SelectedItem.ToString();
+            DialogResult DeleteIt = MessageBox.Show(
+                $"Удалить рецепт {key}?",
+                "Удаление",
+                MessageBoxButtons.YesNo
+            );
+            if (DeleteIt == DialogResult.Yes) DeleteRecipe(key);
         }
 
-        private void button5_Click(object sender, EventArgs e)
+        private void bSave_Click(object sender, EventArgs e)
+        {
+            string now = String.Join(".", DateTime.Now.ToString().Split(':'));
+            string fileName = $"Конвертация {now}.xlsx";
+
+            XLWorkbook workbook = new XLWorkbook();
+            IXLWorksheet ws = workbook.Worksheets.Add("Конвертация");
+            recipesToBeConv.fillXlDoc(ws);
+            workbook.SaveAs(path + fileName);
+            MessageBox.Show($"Файл {fileName} успешно сохранен", "Успешно");
+        }
+
+        private void bSaveAs_Click(object sender, EventArgs e)
         {
             FolderBrowserDialog DirDialog = new FolderBrowserDialog();
             if (DirDialog.ShowDialog() == DialogResult.Cancel)
@@ -232,31 +173,66 @@ namespace SimpleConverter
             }
             rewritePathTxt(DirDialog.SelectedPath);
             path = readPathTxt();
-            button2_Click(null, EventArgs.Empty);
+            bSave_Click(null, EventArgs.Empty);
         }
 
-        private void comboBox1_TextUpdate(object sender, EventArgs e)
+        private void bAddRecipeToBeConv_Click(object sender, EventArgs e)
         {
+            recipesToBeConv.AddRecipe();
+        }
+
+        private void bDelRecipeToBeConv_Click(object sender, EventArgs e)
+        {
+            recipesToBeConv.DeleteRecipe();
+        }
+
+        internal void bDelRecipeToBeConvEnable()
+        {
+            bDelRecipeToBeConv.Enabled = true;
+        }
+
+        internal void bDelRecipeToBeConvDisable()
+        {
+            bDelRecipeToBeConv.Enabled = false;
+        }
+
+        internal void cbRecipeName_TextUpdate(object sender, EventArgs e)
+        {
+            ComboBox cb = (ComboBox)sender;
             List<string> newValues = new List<string>();
             string[] allKeys = Storage.Keys.ToArray();
-            string currentText = comboBox1.Text;
+            string currentText = cb.Text;
             Cursor.Current = Cursors.Default;
 
             foreach (string key in allKeys) if (key.Contains(currentText)) newValues.Add(key);
-            comboBox1.Items.Clear();
-            comboBox1.SelectionStart = comboBox1.Text.Length;
-            comboBox1.Select(comboBox1.Text.Length, 0);
-            if (newValues.Count == 0) comboBox1.Items.AddRange(allKeys);
-            else comboBox1.Items.AddRange(newValues.ToArray());
-            comboBox1.DroppedDown = true;
+            cb.Items.Clear();
+            cb.SelectionStart = cb.Text.Length;
+            cb.Select(cb.Text.Length, 0);
+            if (newValues.Count == 0) cb.Items.AddRange(allKeys);
+            else cb.Items.AddRange(newValues.ToArray());
+            cb.DroppedDown = true;
         }
 
-        private void comboBox1_SelectionChangeCommitted(object sender, EventArgs e)
+        public void fillRecipeNameCB(ComboBox cb)
         {
-            string currentValue = comboBox1.SelectedItem?.ToString() ?? comboBox1.Items[0].ToString();
-            comboBox1.Items.Clear();
-            fillComboBox();
-            comboBox1.SelectedItem = currentValue;
+            string[] storageKeys = Storage.Keys.Select(i => i.ToString()).ToArray();
+            cb.Items.AddRange(storageKeys);
+        }
+
+        internal void recipeName_Leave(object sender, EventArgs e)
+        {
+            ComboBox cb = (ComboBox)sender;
+            if (!cb.Items.Contains(cb.Text)) 
+            { 
+                cb.SelectedIndex = 0;
+                cb.Text = cb.SelectedItem.ToString();
+            }
+        }
+
+        internal void recipeName_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            ComboBox cb = (ComboBox)sender;
+            RecipeToBeConv.RefreshRecipeName(cb, this);
         }
     }
 }
